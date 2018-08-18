@@ -5,11 +5,10 @@ export type Credentials = {
 
 export interface DispatcherContract {
   dispatch (input: Credentials): any
-  use (handler: AuthenticatorContract): any
+  use (fn: (input: Credentials, next: () => any) => any): any
 }
 
 export interface AuthenticatorContract {
-  attempt (obj: Credentials): any
   process (input: Credentials, next: () => any): any
 }
 
@@ -39,8 +38,8 @@ export class Manager {
   /**
    * Create a new authentication manager
    * 
-   * @param dispatcher The dispatcher
-   * @param handlers The handler stack
+   * @param dispatcher The middleware dispatcher
+   * @param handlers The handler container
    * @constructor
    * @public
    */
@@ -52,16 +51,19 @@ export class Manager {
   /**
    * Use an authenticator
    * 
-   * @param handler The authenticator
+   * @param handler The authentication handler
    * @public
    */
   public use (name: string, handler: AuthenticatorContract): this {
-    this._dispatcher.use(handler)
+    this._dispatcher.use((a, b) => handler.process(a, b))
+    this._handlers[name] = handler
     return this
   }
 
   /**
+   * Attempt to authenticate a user using the given credentials
    * 
+   * Will invoke the registered handlers, and return the authenticated user
    * 
    * @public
    * @async
