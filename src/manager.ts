@@ -1,12 +1,14 @@
 
-export type Credentials = {
+export interface Credentials {
   [key: string]: any
 }
 
-export interface DispatcherContract {
-  dispatch (input: Credentials): any
-  use (fn: (input: Credentials, next: () => any) => any): any
+export interface DispatcherContract<T> {
+  register (fn: Handler<T>): any
+  dispatch (input: T): any
 }
+
+export type Handler<T> = (input: T, next: () => any) => any
 
 export interface AuthenticatorContract {
   process (input: Credentials, next: () => any): any
@@ -33,7 +35,7 @@ export class Manager {
    * 
    * @private
    */
-  private _dispatcher: DispatcherContract
+  private _dispatcher: DispatcherContract<Credentials>
 
   /**
    * Create a new authentication manager
@@ -43,21 +45,39 @@ export class Manager {
    * @constructor
    * @public
    */
-  public constructor (dispatcher: DispatcherContract, handlers = {}) {
+  public constructor (dispatcher: DispatcherContract<Credentials>, handlers = {}) {
     this._dispatcher = dispatcher
     this._handlers = handlers
   }
 
   /**
-   * Use an authenticator
+   * Register an authenticator.
    * 
-   * @param handler The authentication handler
+   * @param name The handler name.
+   * @param handler The authentication handler.
    * @public
    */
-  public use (name: string, handler: AuthenticatorContract): this {
-    this._dispatcher.use((a, b) => handler.process(a, b))
+  public register (name: string, handler: AuthenticatorContract): this {
+    this._dispatcher.register(handler.process.bind(handler))
     this._handlers[name] = handler
     return this
+  }
+
+  /**
+   * Get a handler by its name.
+   * 
+   * Will fail if the handler is not already defined.
+   * 
+   * @param name The handler name.
+   * @throws {ReferenceError} if the handler is undefined
+   * @public
+   */
+  public using (name: string): AuthenticatorContract {
+    let handler = this._handlers[name]
+
+    if (handler) return handler
+
+    throw new ReferenceError(`Unknown authentication handler: ${name}`)
   }
 
   /**
