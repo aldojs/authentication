@@ -1,17 +1,20 @@
 
-export interface Credentials {
-  [key: string]: any
-}
+export namespace Contracts {
+  export interface Dispatcher {
+    dispatch (input: object): any
+    register (fn: Handler): any
+  }
 
-export interface DispatcherContract<T> {
-  register (fn: Handler<T>): any
-  dispatch (input: T): any
-}
+  export interface Map {
+    get (name: string): Authenticator | undefined
+    set (name: string, handler: Authenticator): any
+  }
 
-export type Handler<T> = (input: T, next: () => any) => any
+  export interface Authenticator {
+    process (credentials: object, next: () => any): any
+  }
 
-export interface AuthenticatorContract {
-  process (input: Credentials, next: () => any): any
+  export type Handler = (input: object, next: () => any) => any
 }
 
 /**
@@ -26,16 +29,14 @@ export class Manager {
    * 
    * @private
    */
-  private _handlers: {
-    [name: string]: AuthenticatorContract
-  }
+  private _handlers: Contracts.Map
 
   /**
    * The credentials dispatcher
    * 
    * @private
    */
-  private _dispatcher: DispatcherContract<Credentials>
+  private _dispatcher: Contracts.Dispatcher
 
   /**
    * Create a new authentication manager
@@ -45,7 +46,7 @@ export class Manager {
    * @constructor
    * @public
    */
-  public constructor (dispatcher: DispatcherContract<Credentials>, handlers = {}) {
+  public constructor (dispatcher: Contracts.Dispatcher, handlers: Contracts.Map) {
     this._dispatcher = dispatcher
     this._handlers = handlers
   }
@@ -57,9 +58,9 @@ export class Manager {
    * @param handler The authentication handler.
    * @public
    */
-  public register (name: string, handler: AuthenticatorContract): this {
+  public register (name: string, handler: Contracts.Authenticator): this {
     this._dispatcher.register(handler.process.bind(handler))
-    this._handlers[name] = handler
+    this._handlers.set(name, handler)
     return this
   }
 
@@ -72,8 +73,8 @@ export class Manager {
    * @throws {ReferenceError} if the handler is undefined
    * @public
    */
-  public using (name: string): AuthenticatorContract {
-    let handler = this._handlers[name]
+  public using (name: string): Contracts.Authenticator {
+    let handler = this._handlers.get(name)
 
     if (handler) return handler
 
@@ -88,7 +89,7 @@ export class Manager {
    * @public
    * @async
    */
-  public attempt (credentials: Credentials): any {
+  public attempt (credentials: object): any {
     return this._dispatcher.dispatch(credentials)
   }
 }
